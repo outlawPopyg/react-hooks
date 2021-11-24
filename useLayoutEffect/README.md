@@ -27,3 +27,29 @@ export default function App() {
 }
 ```
 В примере выше мы навешиваем обработчик события измененя размера окна когда компонент маунтится.
+
+## 2 use case
+```js
+import React, {useRef, useState, useEffect, useLayoutEffect} from "react";
+
+export default function App() {
+    const paragraph = useRef(null);
+
+    useLayoutEffect(() => {
+        const { current } = paragraph;
+        const blurredEffect = () => {
+            current.style.color = "transparent";
+            current.style.textShadow = "0 0 5px rgba(0,0,0,0.5)";
+        };
+
+        current.addEventListener("click", blurredEffect);
+        return () => current.removeEventListener("click", blurredEffect);
+    }, []);
+
+    return (
+        <div>
+            <p ref={paragraph}>Click me to blur</p>
+        </div>
+    );
+}
+```
