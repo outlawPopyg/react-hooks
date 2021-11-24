@@ -1,4 +1,4 @@
-## 1 use case of useRef()
+## 1 use case
 ```js
 import React, { useState, useEffect, useRef, forwardRef } from "react";
 
@@ -27,4 +27,29 @@ export default function App() {
 
 const NewInput = // надо вот так!
     forwardRef((props, ref) => <input placeholder={props.val} ref={ref} type="text" />);
+```
+
+## 2 use case
+```js
+import React, { useState, useEffect, useRef, forwardRef } from "react";
+
+// The following example will detect the number of times a button is clicked without re-rendering the component.
+export default function App() {
+    const [ state, setState ] = useState(0);
+    const countRef = useRef(0);
+
+    const increment = () => {
+        countRef.current++;
+        console.log(countRef);
+    };
+
+    console.log("render");
+
+    return (
+        <div>
+            <button onClick={ () => setState(1) }>Set state</button>
+            <button onClick={ increment }>Increment</button>
+        </div>
+    );
+}
 ```
