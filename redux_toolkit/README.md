@@ -1,30 +1,24 @@
 ## createSlice()
-### locationSlice.js
+### namesSlice.js
 ```js
 import { createSlice } from "@reduxjs/toolkit";
 
-const locationSlice = createSlice({
-    name: "location",
+const namesSlice = createSlice({
+    name: "names",
 
     initialState: {
-        location: ["Kalim", "Albert", "Yan"],
-        count: 0
+        names: ["Claim", "Albert", "Yan"]
     },
 
     reducers: {
-        save: (state, action) => {
-            const { payload } = action;
-            state.location = [...state.location, payload];
-        },
-        increment: (state, action) => {
-            state.count = state.count + 1;
+        add: (state, action) => {
+            state.names.push(action.payload); // можно мутировать state
         }
     }
 });
 
-const { actions, reducer } = locationSlice;
-export const { save, increment } = actions;
-export default reducer;
+export const { add } = namesSlice.actions; // export actions
+export default namesSlice.reducer;
 ```
 ### index.js
 ```js
@@ -33,13 +27,15 @@ import ReactDOM from 'react-dom';
 import './styles.css';
 import App from './App';
 import {configureStore} from "@reduxjs/toolkit";
-import rootReducer from "./locationSlice";
+import namesSlice from "./namesSlice";
 import { Provider } from "react-redux";
 
 const rootElement = document.getElementById("root");
 
 const store = configureStore({
-    reducer: rootReducer
+    reducer: {
+        namesReducer: namesSlice
+    }
 });
 
 ReactDOM.render(
@@ -50,53 +46,28 @@ ReactDOM.render(
     </Provider>,
     rootElement
 );
-
-
-
 ```
 ### App.js
 ```js
 import React, {useEffect, useState} from "react";
-import { save, increment } from "./locationSlice";
+import { add } from "./namesSlice";
 import { useDispatch, useSelector } from "react-redux";
 
 export default function App() {
-    const [ locationName, setLocationName ] = useState('');
+    const [ value, setValue ] = useState('');
     const dispatch = useDispatch();
-    const { location, count } = useSelector(state => state);
+    const { namesReducer: { names } } = useSelector(state => state);
 
-    const handleData = (e) => {
-        setLocationName(e.target.value);
-    };
-
-    const handleSave = () => {
-        const ifPrestent = location.includes(locationName);
-        if(locationName !== undefined && !ifPrestent) {
-            dispatch(save(locationName));
-            setLocationName('');
-        } else {
-            setLocationName('');
-        }
-    }
-    useEffect(() => console.log("effect"));
     return (
-        <div>
-            <div>
-                <h1>{ count }</h1>
-                <button onClick={() => dispatch(increment())}>increment</button>
-            </div>
-            <input onChange={handleData} value={locationName} />
-            <button style={{margin: '10px'}} onClick={handleSave}>
-                add
-            </button>
+        <>
+            <h1>There are {names.length} names</h1>
+            <input onInput={(e) => setValue(e.target.value)} value={ value } type="text"/>
+            <button onClick={() => dispatch(add(value))}>add name</button>
+            <ul>
+                { names.map(name => <li key={name}>{ name }</li>) }
+            </ul>
+        </>
 
-            <div>
-                <h3> List of locations </h3>
-            </div>
-            <div>
-                {location.map((item) => <li>{item}</li>) }
-            </div>
-        </div>
     );
 }
 ```
