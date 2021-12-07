@@ -139,3 +139,247 @@ export default function App() {
     );
 }
 ```
+
+## createAsyncThunk
+### App.js
+```js
+import React, { useEffect } from "react";
+import { fetchTodos, deleteTodo, toggleComplete, addTodo } from "./todoSlice";
+import { useSelector, useDispatch } from "react-redux";
+
+export default function App() {
+  const dispatch = useDispatch();
+  const { count, todos, status, error } = useSelector((state) => state);
+
+  useEffect(() => {
+    dispatch(fetchTodos());
+  }, [dispatch]);
+
+  return (
+    <div style={{ textAlign: "center", fontSize: "13px" }}>
+      {status === "loading" && (
+        <div style={{ backgroundColor: "blue", color: "white" }}>
+          Loading...
+        </div>
+      )}
+      {(status === "deleting" || status === "patching") && (
+        <div style={{ backgroundColor: "blue", color: "white" }}>
+          Please wait
+        </div>
+      )}
+      {error && <div style={{ color: "red" }}>{error}</div>}
+      <h3>{count}</h3>
+      {todos.map(({ title, completed, id }) => (
+        <div key={id}>
+          <span
+            onClick={() => dispatch(deleteTodo(id))}
+            style={{ color: "red", marginRight: "10px", cursor: "pointer" }}
+          >
+            ✘
+          </span>
+          <li style={{ display: "inline-block" }}>{title}</li>
+          <input
+            onClick={() => dispatch(toggleComplete(id))}
+            type="checkbox"
+            checked={completed}
+          />
+        </div>
+      ))}
+      <button onClick={() => dispatch(addTodo("Hello"))}>add</button>
+    </div>
+  );
+}
+
+```
+### todoSlice.js
+```js
+import { createSlice, createAsyncThunk } from "@reduxjs/toolkit";
+import axios from "axios";
+
+export const fetchTodos = createAsyncThunk(
+  "todoSlice/fetchTodos",
+  async function (_, { rejectWithValue }) {
+    // первый параметр это то, что передаем при вызове
+    try {
+      const response = await fetch(
+        "https://jsonplaceholder.typicode.com/todos?_limit=10"
+      );
+      if (!response.ok) {
+        throw new Error("Server error");
+      }
+      const data = await response.json();
+      return data;
+    } catch (e) {
+      return rejectWithValue(e.message);
+    }
+  }
+);
+
+export const deleteTodo = createAsyncThunk(
+  "todoSlice/deleteTodo",
+  async function (id, { rejectWithValue, dispatch }) {
+    try {
+      const response = await fetch(
+        `https://jsonplaceholder.typicode.com/todos/${id}`,
+        {
+          method: "DELETE"
+        }
+      );
+
+      if (!response.ok) {
+        throw new Error("Can't delete item");
+      }
+
+      dispatch(rmItem(id));
+    } catch (error) {
+      rejectWithValue(error.message);
+    }
+  }
+);
+
+export const toggleComplete = createAsyncThunk(
+  "toggleSlice/toggleComplete",
+  async function (id, { rejectWithValue, dispatch, getState }) {
+    const todo = getState().todos.find((item) => item.id === id);
+
+    try {
+      const response = await axios.patch(
+        `https://jsonplaceholder.typicode.com/todos/${id}`,
+        { completed: !todo.completed }
+      );
+      if (response.status !== 200) {
+        throw new Error("Can not patch");
+      }
+
+      dispatch(toggleItem(id));
+    } catch (error) {
+      return rejectWithValue(error.message);
+    }
+  }
+);
+
+export const addTodo = createAsyncThunk("todoSlice/addTodo", async function (
+  text,
+  { rejectWithValue, dispatch }
+) {
+  const todo = {
+    userId: 1,
+    completed: false,
+    title: text
+  };
+
+  try {
+    const response = await axios.post(
+      "https://jsonplaceholder.typicode.com/todos/",
+      todo
+    );
+    if (!(response.status >= 200 && response.status < 300)) {
+      throw new Error("Can not post");
+    }
+    dispatch(addItem(response.data));
+  } catch (error) {
+    return rejectWithValue(error.message);
+  }
+});
+
+const todoSlice = createSlice({
+  name: "todoSlice",
+
+  initialState: {
+    todos: [
+      { title: "Drink coffee", completed: false, id: -1 },
+      { title: "Make awesome app", completed: true, id: 0 }
+    ],
+    count: 2,
+    status: "",
+    error: ""
+  },
+
+  reducers: {
+    addItem: (state, action) => {
+      state.todos.push(action.payload);
+    },
+    rmItem: (state, action) => {
+      state.todos = state.todos.filter((item) => item.id !== action.payload);
+    },
+    toggleItem: (state, action) => {
+      const todo = state.todos.find((item) => item.id === action.payload);
+      todo.completed = !todo.completed;
+    }
+  },
+
+  extraReducers: {
+    [fetchTodos.pending]: (state) => {
+      state.status = "loading";
+    },
+    [fetchTodos.fulfilled]: (state, action) => {
+      state.status = "resolved";
+      state.todos = action.payload;
+    },
+    [fetchTodos.rejected]: (state, action) => {
+      state.status = "error";
+      state.error = action.payload;
+    },
+    [deleteTodo.pending]: (state) => {
+      state.status = "deleting";
+    },
+    [deleteTodo.fulfilled]: (state) => {
+      state.status = "resolved";
+    },
+    [deleteTodo.rejected]: (state, action) => {
+      state.error = action.payload;
+      state.status = "error";
+    },
+    [toggleComplete.pending]: (state) => {
+      state.status = "patching";
+    },
+    [toggleComplete.fulfilled]: (state) => {
+      state.status = "resolved";
+    },
+    [toggleComplete.rejected]: (state, action) => {
+      state.status = "error";
+      state.error = action.payload;
+    },
+    [addTodo.pending]: (state) => {
+      state.status = "patching";
+    },
+    [addTodo.fulfilled]: (state) => {
+      state.status = "resolved";
+    },
+    [addTodo.rejected]: (state, action) => {
+      state.status = "error";
+      state.error = action.payload;
+    }
+  }
+});
+
+const { reducer, actions } = todoSlice;
+export default reducer;
+export const { addItem, rmItem, toggleItem } = actions;
+
+```
+### index.js
+```js
+import { StrictMode } from "react";
+import ReactDOM from "react-dom";
+import { Provider } from "react-redux";
+import { configureStore } from "@reduxjs/toolkit";
+import todoSlice from "./todoSlice";
+
+import App from "./App";
+
+const store = configureStore({
+  reducer: todoSlice
+});
+
+const rootElement = document.getElementById("root");
+ReactDOM.render(
+  <StrictMode>
+    <Provider store={store}>
+      <App />
+    </Provider>
+  </StrictMode>,
+  rootElement
+);
+
+```
