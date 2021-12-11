@@ -383,3 +383,150 @@ ReactDOM.render(
 );
 
 ```
+
+## RTK Query
+Эта технология отличается от предыдущей тем, что источник истинны - сервер, а не редьюсеры.
+Следовательно редьюсеров здесь нет.
+
+### goodsApi.js
+```js
+import { createApi, fetchBaseQuery} from "@reduxjs/toolkit/query/react";
+
+export const goodsAPI = createApi({
+    reducerPath: "goodsApi",
+    tagTypes: ["Products"],
+    baseQuery:  fetchBaseQuery({ baseUrl:  'http://localhost:3001'}),
+    endpoints: (build) => ({
+        getGoods: build.query({ // get Запрос
+            query: (limit = '') => `goods?${limit ? `_limit=${limit}` : '' }`,
+            providesTags: (result) =>
+                result
+                    ? [
+                        ...result.map(({ id }) => ({ type: 'Products', id })),
+                        { type: 'Products', id: 'LIST' },
+                    ]
+                    : [{ type: 'Products', id: 'LIST' }],
+        }),
+        addProduct: build.mutation({ // post запрос
+            query: (body) => ({
+                url: "goods",
+                method: "POST",
+                body
+            }),
+            invalidatesTags: [{ type: "Products", id: "LIST"} ]
+        }),
+        deleteProduct: build.mutation({ // delete запрос
+            query: (id) => ({
+                url: `goods/${id}`,
+                method: "DELETE"
+            }),
+            invalidatesTags: [{ type: "Products", id: "LIST" }]
+        })
+    })
+});
+// экспортируются автоматически-созданные хуки
+export const { useGetGoodsQuery, useAddProductMutation, useDeleteProductMutation } = goodsAPI;
+```
+### db.json
+```json
+{
+  "goods": [
+    {
+      "name": "Milk",
+      "id": 1
+    },
+    {
+      "name": "Potato",
+      "id": 2
+    },
+    {
+      "name": "Cabage",
+      "id": 3
+    }
+  ]
+}
+```
+
+### store.js
+```js
+import { goodsAPI } from "./goodsAPI";
+import {configureStore } from "@reduxjs/toolkit";
+
+export const store = configureStore({
+    reducer: {
+        [goodsAPI.reducerPath]: goodsAPI.reducer
+    },
+    middleware: (getDefaultMiddleware) => getDefaultMiddleware().concat(goodsAPI.middleware)
+});
+```
+
+### index.js
+```js
+import React, { StrictMode } from 'react';
+import ReactDOM from 'react-dom';
+import './styles.css';
+import App from './App';
+import { Provider } from "react-redux";
+import { store } from "./redux/store";
+
+const rootElement = document.getElementById("root");
+
+ReactDOM.render(
+    <StrictMode>
+        <Provider store={store}>
+            <App />
+        </Provider>
+    </StrictMode>,
+    rootElement
+);
+```
+
+### App.js
+```js
+import React, {useState} from "react";
+import {useGetGoodsQuery, useAddProductMutation, useDeleteProductMutation} from "./redux/goodsAPI";
+
+export default function App() {
+    const [ count, setCount ] = useState('');
+    const [ newProductName, setNewProductName ] = useState('');
+    const { data = [], isLoading } = useGetGoodsQuery(count);
+    const [ addProduct, { isError }] = useAddProductMutation();
+    const [ deleteProduct ] = useDeleteProductMutation();
+
+    const handleAddNewProduct = async() => {
+        if (newProductName) {
+            await addProduct({ name: newProductName }).unwrap();
+            setNewProductName('');
+        }
+    }
+
+    const handleDeleteProduct = async(id) => {
+        await deleteProduct(id).unwrap();
+    }
+
+    if (isLoading) {
+        return <div>Loading...</div>
+    }
+
+    // useEffect(() => )
+
+    return (
+        <ul>
+            <input
+                value={ newProductName }
+                onChange={(e) => setNewProductName(e.target.value)}
+            />
+            <button onClick={ handleAddNewProduct }>add product</button>
+            <select
+                value={count}
+                onChange={(e) => setCount(e.target.value) }>
+                <option value="">all</option>
+                <option value="1">1</option>
+                <option value="2">2</option>
+                <option value="3">3</option>
+            </select>
+            { data.map(item => <li onClick={() => deleteProduct(item.id)}>{item.name}</li>) }
+        </ul>
+    );
+}
+```
